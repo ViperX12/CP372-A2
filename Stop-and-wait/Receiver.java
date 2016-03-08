@@ -22,13 +22,19 @@ public class Receiver {
         int prevSeqNum = 1; //Expecting 1st SeqNum of 0
 		int packetcount = 0;
 		boolean lostpacket = false;
+		boolean start = false;
+		long startTime = 0;
 		
         socket = new DatagramSocket(inPort);
 		
-		final long startTime = System.currentTimeMillis(); //Timer Start
+		
 		while(true) {
 		    packet = new DatagramPacket(packetBuffer, packetBuffer.length);
 		    socket.receive(packet);
+			if (start == false){
+				startTime = System.currentTimeMillis(); //Timer Start
+				start = true;
+			}
 		    System.arraycopy(packetBuffer, 0, seqNum, 0, seqNum.length); //Separate out Sequence Number
 		    System.arraycopy(packetBuffer, 1, fileBuffer, 0, fileBuffer.length); //Separate out File Buffer
 		    packetcount += 1;
