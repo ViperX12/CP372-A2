@@ -20,9 +20,10 @@ public class Sender {
 		byte[] fileBuffer = new byte[124];
 		byte[] ack = new byte[1];
 		int bytesRead = 0;
+		int timeout = 25;
         
         socket = new DatagramSocket(inPort);
-        socket.setSoTimeout(500); //Half Second Timeout
+        socket.setSoTimeout(timeout); 
         
         try {
         	finput = new FileInputStream(filename);

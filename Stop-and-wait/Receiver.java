@@ -25,16 +25,19 @@ public class Receiver {
 		
         socket = new DatagramSocket(inPort);
 		
-		final long startTime = System.currentTimeMillis(); //Timer Start
+        long startTime = 0;
 		while(true) {
+			System.out.println("Waiting for Packet.");
 		    packet = new DatagramPacket(packetBuffer, packetBuffer.length);
 		    socket.receive(packet);
+		    if (packetcount == 0) { startTime = System.currentTimeMillis(); } //Timer Start
 		    System.arraycopy(packetBuffer, 0, seqNum, 0, seqNum.length); //Separate out Sequence Number
 		    System.arraycopy(packetBuffer, 1, fileBuffer, 0, fileBuffer.length); //Separate out File Buffer
 		    packetcount += 1;
 		    
 		    if (reliability != 0) lostpacket = packetcount % reliability == 0;
 		    if (seqNum[0] != -1 && !lostpacket) {
+		    	System.out.println(seqNum[0]);
 		    	if (seqNum[0] != prevSeqNum) { //Write to File if Correct Sequence Number
 		    		foutput.write(fileBuffer);
 		    		prevSeqNum = seqNum[0];
@@ -51,7 +54,7 @@ public class Receiver {
 		    	break;
 		    }
 	    }
-		final long endTime = System.currentTimeMillis(); //Timer End
+		long endTime = System.currentTimeMillis(); //Timer End
 		System.out.println("Total Transmission Time: " + (endTime - startTime));
     	
 		foutput.close();
