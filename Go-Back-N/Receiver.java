@@ -16,51 +16,56 @@ public class Receiver {
 		FileOutputStream foutput = new FileOutputStream(filename);
 		byte[] packetBuffer = new byte[125];
 		byte[] seqNum = new byte[1];
-                byte[] lastAckSeqNum = new byte[1];
-                byte[] resendSeqNum = new byte[1];
-                lastAckSeqNum[0] = -1;
+		
+        byte[] expectedSeqNum = new byte[1];
+        byte[] lastSeqNum = new byte[1];
+        
 		byte[] fileBuffer = new byte[124];
-		byte[] ack = new byte[1];
-		ack[0] = (byte)1; //Set ACK to 1
 		int packetcount = 0;
 		boolean lostpacket = false;
 		
         socket = new DatagramSocket(inPort);
 		
-		final long startTime = System.currentTimeMillis(); //Timer Start
+        long startTime = 0;
 		while(true) {
+			System.out.println("Waiting for Packet.");
 		    packet = new DatagramPacket(packetBuffer, packetBuffer.length);
 		    socket.receive(packet);
+		    if (packetcount == 0) { startTime = System.currentTimeMillis(); } //Timer Start
 		    System.arraycopy(packetBuffer, 0, seqNum, 0, seqNum.length); //Separate out Sequence Number
 		    System.arraycopy(packetBuffer, 1, fileBuffer, 0, fileBuffer.length); //Separate out File Buffer
 		    packetcount += 1;
-		    System.out.println(seqNum[0]);
-                    System.out.println(lastAckSeqNum[0]);
+	
+            System.out.println("Expected " + expectedSeqNum[0]);
+		    System.out.println("Received " + seqNum[0]);
+             
 		    if (reliability != 0) lostpacket  = packetcount % reliability == 0;
-		    if (seqNum[0] != -1 && !lostpacket) {
-		    	if (seqNum[0] == lastAckSeqNum[0] + 1) { //Write to File if Correct Sequence Number
+		    if (seqNum[0] != -2 && !lostpacket) {
+		    	if (seqNum[0] == expectedSeqNum[0]) { //Write to File if Correct Sequence Number
 		    		foutput.write(fileBuffer);
-		    		lastAckSeqNum[0] = seqNum[0];
-                                packet = new DatagramPacket(seqNum, seqNum.length, address, outPort);
-                                socket.send(packet);
-                                System.out.println("ACK sent.");
-		    	}
-                        else {
-                            resendSeqNum[0] = (byte) (lastAckSeqNum[0] + 1);
-                            packet = new DatagramPacket(resendSeqNum, resendSeqNum.length, address, outPort);
-                            socket.send(packet);
-                            System.out.println("Packet out of order. Dropped and resending ACK #" + resendSeqNum[0] + ".");
-                        }
+                    packet = new DatagramPacket(seqNum, seqNum.length, address, outPort);
+                    socket.send(packet);
+                    System.out.println("ACK sent.");
+                    //expectedSeqNum[0] = (byte) (expectedSeqNum[0] +  1); //THIS NEEDS TO ROLLOVER
+                    expectedSeqNum[0] = (byte) ((expectedSeqNum[0] +  1) % 128);
+		    	} else {
+		    		lastSeqNum[0] = (byte) (expectedSeqNum[0] - 1); //THIS NEEDS TO ROLL...BACK
+		    		if (lastSeqNum[0] == -1) { lastSeqNum[0] = 127; }
+                    packet = new DatagramPacket(lastSeqNum, lastSeqNum.length, address, outPort);
+                    socket.send(packet);
+                    System.out.println("Packet out of order. Dropped and resending ACK " + lastSeqNum[0] + ".");
+                }
 		    } else if (lostpacket) {
-		    	System.out.println("Packet lost.");
+		    	System.out.println("(Packet lost)");
 		    } else {
-	    		packet = new DatagramPacket(ack, ack.length, address, outPort);
+		    	//EOT ACK, special seqNum sent is -2, so send back
+	    		packet = new DatagramPacket(seqNum, seqNum.length, address, outPort);
 	    		socket.send(packet);
 	    		System.out.println("EOT ACK sent.");
 		    	break;
 		    }
 	    }
-		final long endTime = System.currentTimeMillis(); //Timer End
+		long endTime = System.currentTimeMillis(); //Timer End
 		System.out.println("Total Transmission Time: " + (endTime - startTime));
     	
 		foutput.close();
